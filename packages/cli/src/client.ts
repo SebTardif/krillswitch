@@ -19,7 +19,7 @@ function fetchTimeoutMsFromEnv(
   if (raw === undefined || raw.trim() === "") {
     return undefined;
   }
-  return validateTimeoutMs(Number(raw));
+  return validateTimeoutMs(/^\d+$/.test(raw.trim()) ? Number(raw) : NaN);
 }
 
 export class CliError extends Error {
@@ -52,10 +52,13 @@ export class KrillswitchClient {
     }
     const accessHeaders = cloudflareAccessHeaders(this.config);
     const hasBody = options.body !== undefined;
-    const signal =
+    const controller = new AbortController();
+    const { signal } = controller;
+    const timer =
       this.fetchTimeoutMs === 0
         ? undefined
-        : AbortSignal.timeout(this.fetchTimeoutMs);
+        : setTimeout(() => controller.abort(), this.fetchTimeoutMs);
+    timer?.unref();
     let response: Response | undefined;
     try {
       response = await fetch(`${this.config.baseUrl}${path}`, {
@@ -81,7 +84,7 @@ export class KrillswitchClient {
       }
       return (await response.json()) as T;
     } catch (error) {
-      if (signal?.aborted) {
+      if (signal.aborted) {
         throw new CliError(
           `request to ${this.config.baseUrl} timed out after ${this.fetchTimeoutMs}ms`,
         );
@@ -90,6 +93,10 @@ export class KrillswitchClient {
       throw new CliError(
         `could not reach krillswitch at ${this.config.baseUrl}`,
       );
+    } finally {
+      clearTimeout(timer);
+      // Release unread bodies when an HTTP error is handled before consuming JSON.
+      controller.abort();
     }
   }
 }
