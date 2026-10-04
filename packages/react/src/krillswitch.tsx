@@ -276,7 +276,7 @@ function createClient<M extends FlagManifest>(
       let eventSource: EventSource | null = null;
       if (stream && typeof EventSource !== "undefined") {
         eventSource = new EventSource(
-          `${baseUrl}/v1/stream?key=${encodeURIComponent(evalKey)}`,
+          `${baseUrl.replace(/\/+$/, "")}/v1/stream?key=${encodeURIComponent(evalKey)}`,
         );
         eventSource.addEventListener("change", () => void refresh());
       }
