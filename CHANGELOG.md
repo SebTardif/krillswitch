@@ -6,6 +6,7 @@ All notable changes to Krillswitch are documented in this file.
 
 ### Fixed
 
+- Strip a trailing slash from the React event-stream URL so a base URL ending in `/` connects to `/v1/stream`. Thanks @SebTardif.
 - Abort CLI API requests and response-body reads after a new 30-second default deadline, report timeout errors clearly, and support `KRILLSWITCH_TIMEOUT_MS` overrides (`0` restores unlimited waits). Thanks @SebTardif.
 
 ### Added
