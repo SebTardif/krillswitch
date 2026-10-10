@@ -712,6 +712,20 @@ describe("stream", () => {
     );
   });
 
+  it("strips a trailing slash from the stream URL the same way eval does", async () => {
+    fetchMock.mockResolvedValue(evalResponse({ souls: false }));
+    render(
+      <FeatureFlagProvider evalKey={EVAL_KEY} baseUrl={`${BASE_URL}/`} stream>
+        <SoulsProbe />
+      </FeatureFlagProvider>,
+    );
+    await waitFor(() => expect(FakeEventSource.instances.length).toBe(1));
+    expect(FakeEventSource.instances[0]?.url).toBe(
+      `${BASE_URL}/v1/stream?key=${encodeURIComponent(EVAL_KEY)}`,
+    );
+    expect(FakeEventSource.instances[0]?.url).not.toContain("//v1/stream");
+  });
+
   it("closes the stream on unmount and never opens one without the option", async () => {
     fetchMock.mockResolvedValue(evalResponse({ souls: false }));
     const withStream = render(
