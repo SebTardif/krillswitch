@@ -249,7 +249,8 @@ function WebhookRow({
       </form>
       {replace.isError && (
         <p role="alert" className="save-error">
-          Replacing the URL failed. Use a public HTTPS address.
+          Replacing the URL failed. Use HTTPS. Private and metadata addresses
+          are rejected.
         </p>
       )}
     </li>
@@ -293,8 +294,10 @@ function WebhooksSection() {
       <p className="muted section-hint">
         Every change-log entry is POSTed as JSON to each enabled HTTPS URL after
         the change lands. Delivery is notify-only. Failures are recorded and not
-        retried. Private, metadata, and non-HTTPS URLs are rejected. An already
-        saved unsafe URL stays queued until you replace it.
+        retried. Non-HTTPS URLs and literal private, metadata, and non-global
+        addresses are rejected. A hostname is checked as a name only, and
+        delivery does not pin the address it resolves to. An already saved
+        unsafe URL stays queued until you replace it.
       </p>
       {webhooks.isError && <p role="alert">Failed to load webhooks.</p>}
       {webhooks.isSuccess && webhooks.data.webhooks.length > 0 && (
@@ -343,7 +346,8 @@ function WebhooksSection() {
       </form>
       {create.isError && (
         <p role="alert" className="save-error">
-          Adding the webhook failed. Check the URL and try again.
+          Adding the webhook failed. Use HTTPS. Private and metadata addresses
+          are rejected.
         </p>
       )}
     </section>

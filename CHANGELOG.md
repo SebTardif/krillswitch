@@ -6,7 +6,7 @@ All notable changes to Krillswitch are documented in this file.
 
 ### Security
 
-- Reject webhook URLs that are not public HTTPS, including private, metadata, and non-global addresses, and do not follow delivery redirects. An already stored unsafe URL stays queued until an admin replaces it. Disabling a webhook does not send an entry again after the subscriber already received it. Thanks @SebTardif.
+- Reject non-HTTPS webhook URLs and literal private, metadata, and non-global addresses, and do not follow delivery redirects. A hostname is checked as a name only. Delivery does not pin the address that name resolves to. An already stored unsafe URL stays queued until an admin replaces it. Disabling a webhook does not send an entry again after the subscriber already received it. Thanks @SebTardif.
 
 ## [v0.6.1] - 2026-10-26
 

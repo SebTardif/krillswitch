@@ -17,10 +17,10 @@ export class WebhookUrlError extends Error {
 const blockedHostnames = new Set(["localhost", "metadata.google.internal"]);
 
 /**
- * Public HTTPS literals and hostnames only.
+ * HTTPS only. Literal private, metadata, and non-global addresses are rejected.
  * Workers fetch resolves a hostname again, and there is no off-zone API that
  * pins that connection to a checked address while keeping the subscriber's
- * TLS name. Hostnames are therefore not treated as a resolved-address guarantee.
+ * TLS name. A hostname is not a resolved-address guarantee.
  */
 export function assertPublicHttpsWebhookUrl(raw: string): URL {
   let parsed: URL;
