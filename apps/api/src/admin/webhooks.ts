@@ -417,7 +417,8 @@ export async function deleteWebhook(
  *  HTTP, network, and timeout results advance the cursor so a dead subscriber
  *  cannot stall the queue. An unsafe stored URL does not: the queue stays
  *  until an admin replaces it. A drain that loaded an older URL does not
- *  POST or commit the cursor after that URL changes. */
+ *  POST or commit the cursor after that URL changes. Disabling the same
+ *  URL stops later POSTs and still commits entries that were already sent. */
 export async function drainWebhooks(
   db: DrizzleD1Database,
   fetcher: typeof fetch = fetch,
@@ -442,11 +443,11 @@ async function readWebhook(db: DrizzleD1Database, id: string) {
   return db.select().from(webhooks).where(eq(webhooks.id, id)).get();
 }
 
-function destinationStillCurrent(
-  row: { url: string; enabled: boolean },
+function urlUnchanged(
+  row: { url: string } | undefined,
   snapshot: { url: string },
-): boolean {
-  return row.enabled && row.url === snapshot.url;
+): row is { url: string; enabled: boolean } {
+  return row !== undefined && row.url === snapshot.url;
 }
 
 async function drainOneWebhook(
@@ -456,7 +457,7 @@ async function drainOneWebhook(
   timeoutMs: number,
 ): Promise<void> {
   const current = await readWebhook(db, hook.id);
-  if (!current || !destinationStillCurrent(current, hook)) {
+  if (!current || current.url !== hook.url || !current.enabled) {
     return;
   }
   if (webhookUrlBlocked(current.url)) {
@@ -493,8 +494,11 @@ async function drainOneWebhook(
   let attempted = false;
   for (const { rowid, ...entry } of entries) {
     const before = await readWebhook(db, hook.id);
-    if (!before || !destinationStillCurrent(before, hook)) {
+    if (!urlUnchanged(before, hook)) {
       return;
+    }
+    if (!before.enabled) {
+      break;
     }
     try {
       const response = await fetcher(before.url, {
@@ -508,7 +512,7 @@ async function drainOneWebhook(
         signal: AbortSignal.timeout(timeoutMs),
       });
       const after = await readWebhook(db, hook.id);
-      if (!after || !destinationStillCurrent(after, hook)) {
+      if (!urlUnchanged(after, hook)) {
         return;
       }
       if (response.status >= 300 && response.status < 400) {
@@ -520,9 +524,12 @@ async function drainOneWebhook(
       }
       cursor = rowid;
       attempted = true;
+      if (!after.enabled) {
+        break;
+      }
     } catch (error) {
       const after = await readWebhook(db, hook.id);
-      if (!after || !destinationStillCurrent(after, hook)) {
+      if (!urlUnchanged(after, hook)) {
         return;
       }
       if (isFetchTimeout(error)) {

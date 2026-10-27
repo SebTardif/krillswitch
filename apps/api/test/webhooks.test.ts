@@ -504,4 +504,75 @@ describe("drainWebhooks", () => {
       await db.delete(changeLog).where(eq(changeLog.id, entryId));
     }
   });
+
+  it("keeps a completed POST when the same URL is disabled during delivery", async () => {
+    const db = drizzle(env.DB);
+    const tail = await db
+      .select({ rowid: sql<number>`coalesce(max(rowid), 0)` })
+      .from(changeLog)
+      .get();
+    const hookId = crypto.randomUUID();
+    const entryIds = [crypto.randomUUID(), crypto.randomUUID()];
+    const cursor = tail?.rowid ?? 0;
+    const url = "https://disable.example/hook";
+    await db.insert(webhooks).values({
+      id: hookId,
+      name: "Disable during drain",
+      url,
+      cursor,
+      createdAt: new Date(),
+    });
+    await db.insert(changeLog).values(
+      entryIds.map((id) => ({
+        id,
+        actorUserId: "disable-test",
+        actorName: "Disable test",
+        action: "flag.update" as const,
+        target: "disable-test",
+        createdAt: new Date(),
+      })),
+    );
+    try {
+      const calls: string[] = [];
+      const disablingFetch = (async (input: RequestInfo | URL) => {
+        calls.push(String(input));
+        await db
+          .update(webhooks)
+          .set({ enabled: false })
+          .where(eq(webhooks.id, hookId));
+        return new Response("ok");
+      }) as typeof fetch;
+      await drainWebhooks(db, disablingFetch);
+      expect(calls).toEqual([url]);
+      const paused = await db
+        .select()
+        .from(webhooks)
+        .where(eq(webhooks.id, hookId))
+        .get();
+      expect(paused?.enabled).toBe(false);
+      expect(paused?.cursor).toBeGreaterThan(cursor);
+      const advanced = paused?.cursor ?? cursor;
+
+      await db
+        .update(webhooks)
+        .set({ enabled: true })
+        .where(eq(webhooks.id, hookId));
+      calls.length = 0;
+      const resumed = (async (input: RequestInfo | URL) => {
+        calls.push(String(input));
+        return new Response("ok");
+      }) as typeof fetch;
+      await drainWebhooks(db, resumed);
+      expect(calls).toEqual([url]);
+      const done = await db
+        .select()
+        .from(webhooks)
+        .where(eq(webhooks.id, hookId))
+        .get();
+      expect(done?.cursor).toBeGreaterThan(advanced);
+    } finally {
+      await db.delete(webhooks).where(eq(webhooks.id, hookId));
+      await db.delete(changeLog).where(inArray(changeLog.id, entryIds));
+    }
+  });
 });
