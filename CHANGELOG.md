@@ -4,6 +4,10 @@ All notable changes to Krillswitch are documented in this file.
 
 ## [Unreleased]
 
+### Security
+
+- Reject webhook URLs that are not public HTTPS, including private, metadata, and non-global addresses, and do not follow delivery redirects. An already stored unsafe URL stays queued until an admin replaces it. Thanks @SebTardif.
+
 ## [v0.6.1] - 2026-10-26
 
 **Highlights:** Patch the Undici integrity bypass and workerd's compromised-key verifier, with refreshed compatible tooling.
